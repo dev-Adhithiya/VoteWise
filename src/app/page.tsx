@@ -1,65 +1,129 @@
-import Image from "next/image";
+/**
+ * ==========================================================================
+ * MAIN DASHBOARD PAGE — page.tsx
+ * ==========================================================================
+ * The primary page of the VoteWise AI Election Education Assistant.
+ * Assembles all components into a cohesive dashboard layout:
+ * 
+ * Layout Structure:
+ * ┌──────────┬──────────────────────────────────────┐
+ * │          │  [Language Toggle]              Top   │
+ * │ Sidebar  │  ┌──────────────────────────────┐    │
+ * │ (Ask     │  │     Chat / Welcome Banner    │    │
+ * │  About)  │  │     + Tool Result UIs        │    │
+ * │          │  └──────────────────────────────┘    │
+ * │          │  [Chat Input Bar]                    │
+ * │          │  [Election Timeline] (collapsible)   │
+ * └──────────┴──────────────────────────────────────┘
+ * 
+ * Responsive: Sidebar collapses to hamburger on mobile.
+ * State: All shared state managed here, passed via props.
+ */
+"use client";
 
-export default function Home() {
+import React, { useState, useCallback } from "react";
+import Sidebar from "@/components/Sidebar";
+import GeminiChat from "@/components/GeminiChat";
+import ElectionTimeline from "@/components/ElectionTimeline";
+import LanguageToggle from "@/components/LanguageToggle";
+import type { SupportedLanguage } from "@/types";
+
+export default function DashboardPage() {
+  /* -- Sidebar State -- */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  /* -- Language State -- */
+  const [language, setLanguage] = useState<SupportedLanguage>("en");
+
+  /* -- Injected Message State (from sidebar/cards) -- */
+  const [injectedMessage, setInjectedMessage] = useState<string>("");
+
+  /**
+   * Handle topic selection from the sidebar.
+   * Sets the injected message which GeminiChat picks up and sends.
+   */
+  const handleTopicSelect = useCallback((topic: string) => {
+    setInjectedMessage(topic);
+  }, []);
+
+  /**
+   * Clear the injected message after GeminiChat has processed it.
+   * Prevents re-sending on re-renders.
+   */
+  const handleInjectedMessageProcessed = useCallback(() => {
+    setInjectedMessage("");
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <>
+      {/* ================================================================
+          SIDEBAR — Fixed left panel with election topics
+          ================================================================ */}
+      <Sidebar
+        onTopicSelect={handleTopicSelect}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      {/* ================================================================
+          MAIN CONTENT AREA — Chat + Timeline
+          ================================================================ */}
+      <main className="flex-1 flex flex-col min-w-0 h-full" role="main">
+        {/* ──────────────────────────────────────────────────────────────
+            TOP BAR — App title + Language toggle
+            ────────────────────────────────────────────────────────────── */}
+        <header className="flex items-center justify-between px-4 md:px-8 py-3 border-b border-white/5 flex-shrink-0">
+          {/* App Title — visible on desktop, hidden on mobile (hamburger takes precedence) */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent-blue to-blue-600 
+                              flex items-center justify-center shadow-lg shadow-accent-blue/20">
+                <span className="text-white text-sm font-bold">V</span>
+              </div>
+              <h1
+                className="text-lg font-bold text-white"
+                style={{ fontFamily: "var(--font-outfit)" }}
+              >
+                Vote<span className="text-accent-blue">Wise</span> AI
+              </h1>
+            </div>
+            {/* Mobile spacer for hamburger menu */}
+            <div className="w-12 md:hidden" />
+          </div>
+
+          {/* Right side controls */}
+          <div className="flex items-center gap-3">
+            {/* Status indicator */}
+            <div className="hidden sm:flex items-center gap-2 glass-panel rounded-full px-3 py-1.5">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs text-foreground-dim font-medium">Online</span>
+            </div>
+
+            {/* Language Toggle */}
+            <LanguageToggle
+              currentLang={language}
+              onLanguageChange={setLanguage}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+        </header>
+
+        {/* ──────────────────────────────────────────────────────────────
+            CHAT AREA — Takes up remaining vertical space
+            ────────────────────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <GeminiChat
+            injectedMessage={injectedMessage}
+            onInjectedMessageProcessed={handleInjectedMessageProcessed}
+          />
+        </div>
+
+        {/* ──────────────────────────────────────────────────────────────
+            ELECTION TIMELINE — Collapsible bottom section
+            ────────────────────────────────────────────────────────────── */}
+        <div className="border-t border-white/5 px-4 md:px-8 py-3 flex-shrink-0">
+          <ElectionTimeline />
         </div>
       </main>
-    </div>
+    </>
   );
 }

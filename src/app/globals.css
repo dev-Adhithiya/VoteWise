@@ -1,26 +1,340 @@
+/* ==========================================================================
+   OBSIDIAN FROST — Global Stylesheet
+   Election Education Web Assistant
+   Theme: Dark glassmorphism with animated gradient backgrounds,
+          frosted glass overlays, and gold accent typography.
+   ========================================================================== */
+
 @import "tailwindcss";
 
+/* --------------------------------------------------------------------------
+   CSS CUSTOM PROPERTIES (Design Tokens)
+   All theme colors, shadows, and animation values are centralized here
+   for easy maintenance and consistency across the application.
+   -------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* -- Core Palette -- */
+  --obsidian: #0A0A0F;
+  --obsidian-light: #12121A;
+  --accent-blue: #3B82F6;
+  --accent-blue-light: #60A5FA;
+  --gold: #FFD700;
+  --gold-dim: #B8960C;
+
+  /* -- Glass Effect Tokens -- */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-bg-active: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-hover: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* -- Typography -- */
+  --foreground: #E5E7EB;
+  --foreground-dim: #9CA3AF;
+  --foreground-muted: #6B7280;
+
+  /* -- Gradient Background -- */
+  --gradient-1: #0A0A0F;
+  --gradient-2: #1a0a2e;
+  --gradient-3: #0a1628;
+  --gradient-4: #0A0A0F;
 }
 
+/* --------------------------------------------------------------------------
+   TAILWIND v4 THEME EXTENSIONS
+   Using @theme inline to extend Tailwind's design system with our
+   Obsidian Frost tokens. This makes all values available as utilities.
+   -------------------------------------------------------------------------- */
 @theme inline {
-  --color-background: var(--background);
+  --color-obsidian: var(--obsidian);
+  --color-obsidian-light: var(--obsidian-light);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-light: var(--accent-blue-light);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-foreground-dim: var(--foreground-dim);
+  --color-foreground-muted: var(--foreground-muted);
+  --font-sans: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
+
+  /* -- Animation Keyframes -- */
+  --animate-gradient-shift: gradient-shift 15s ease infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-typing-dot: typing-dot 1.4s infinite;
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* --------------------------------------------------------------------------
+   KEYFRAME ANIMATIONS
+   Custom animations for the glassmorphism theme, including the animated
+   gradient background, pulsing glow effects, and typing indicator.
+   -------------------------------------------------------------------------- */
+
+/* Animated gradient background — shifts colors smoothly across the viewport */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+}
+
+/* Pulsing glow — used on the "In Progress" timeline step */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--accent-blue), 0 0 10px var(--accent-blue);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent-blue), 0 0 40px var(--accent-blue), 0 0 60px rgba(59, 130, 246, 0.3);
   }
 }
 
+/* Typing indicator dot animation — staggered bounce */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-8px); opacity: 1; }
+}
+
+/* Fade in animation for chat messages */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Slide up animation for welcome cards */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* --------------------------------------------------------------------------
+   BASE STYLES
+   Global body and HTML styling for the dark theme.
+   -------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
 body {
-  background: var(--background);
+  background: var(--obsidian);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow: hidden; /* Prevent body scroll — chat handles its own scroll */
+}
+
+/* --------------------------------------------------------------------------
+   ANIMATED GRADIENT BACKGROUND
+   Full-viewport animated gradient that creates the "Obsidian Frost" atmosphere.
+   Applied to a fixed background div in the root layout.
+   -------------------------------------------------------------------------- */
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    135deg,
+    var(--gradient-1) 0%,
+    var(--gradient-2) 25%,
+    var(--gradient-3) 50%,
+    var(--gradient-2) 75%,
+    var(--gradient-4) 100%
+  );
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+/* Subtle noise overlay for added texture on the gradient */
+.animated-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(59, 130, 246, 0.03) 0%,
+    transparent 70%
+  );
+}
+
+/* --------------------------------------------------------------------------
+   GLASSMORPHISM UTILITY CLASSES
+   Reusable glass-panel classes for cards, sidebars, and overlays.
+   These combine transparency, blur, and border effects.
+   -------------------------------------------------------------------------- */
+
+/* Standard glass panel — used for most containers */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Glass panel with hover interaction */
+.glass-panel-interactive {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.glass-panel-interactive:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+/* Sidebar-specific glass styling */
+.glass-sidebar {
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--glass-border);
+}
+
+/* Modal overlay — darker glass with heavy blur */
+.glass-modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Modal content panel */
+.glass-modal {
+  background: rgba(18, 18, 26, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   GOLD TEXT GLOW EFFECT
+   Applied to dates, times, and other highlighted text in chat messages.
+   Creates a warm gold glow using text-shadow.
+   -------------------------------------------------------------------------- */
+.text-gold-glow {
+  color: var(--gold);
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4), 0 0 16px rgba(255, 215, 0, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   ACCENT BLUE GLOW
+   Used for active/highlighted elements like the current timeline step.
+   -------------------------------------------------------------------------- */
+.accent-glow {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4), 0 0 30px rgba(59, 130, 246, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   CUSTOM SCROLLBAR
+   Thin, dark-themed scrollbar that blends with the glassmorphism aesthetic.
+   Only visible on hover for a cleaner appearance.
+   -------------------------------------------------------------------------- */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Firefox scrollbar styling */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* --------------------------------------------------------------------------
+   VERDICT CARD GLOW EFFECTS
+   Color-coded border glows for fact-check verdict cards.
+   -------------------------------------------------------------------------- */
+.verdict-true { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), inset 0 0 20px rgba(34, 197, 94, 0.05); border-color: rgba(34, 197, 94, 0.5); }
+.verdict-false { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.5); }
+.verdict-misleading { box-shadow: 0 0 20px rgba(234, 179, 8, 0.3), inset 0 0 20px rgba(234, 179, 8, 0.05); border-color: rgba(234, 179, 8, 0.5); }
+
+/* --------------------------------------------------------------------------
+   GOLD CHECKBOX STYLING
+   Custom checkbox with gold accent for the voter readiness checklist.
+   -------------------------------------------------------------------------- */
+.gold-checkbox {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--foreground-muted);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.gold-checkbox:checked {
+  background: var(--gold);
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+}
+
+.gold-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--obsidian);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gold-checkbox:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   NEON DROP-SHADOW FOR CHART BARS
+   Party-colored neon glows applied to Recharts bar elements.
+   -------------------------------------------------------------------------- */
+.chart-bar-dem { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5)); }
+.chart-bar-rep { filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.5)); }
+.chart-bar-ind { filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5)); }
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE UTILITIES
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .glass-sidebar {
+    position: fixed;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .glass-sidebar.open {
+    transform: translateX(0);
+  }
 }
