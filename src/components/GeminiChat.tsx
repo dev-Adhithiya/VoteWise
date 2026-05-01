@@ -194,13 +194,12 @@ export default function GeminiChat({
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to send message:", error);
       const errorMessage: ChatMessageType = {
         id: `error-${Date.now()}`,
         role: "assistant",
-        content:
-          "I'm having trouble connecting right now. Please try again in a moment.",
+        content: error?.message || "I'm having trouble connecting right now. Please try again in a moment.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);

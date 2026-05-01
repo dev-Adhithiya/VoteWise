@@ -204,6 +204,48 @@ export function createGeminiModel() {
    Processes function calls from Gemini and returns mock/real results.
    In production, these would call actual Google APIs.
    -------------------------------------------------------------------------- */
+function handleGetPollingRoute(args: Record<string, unknown>) {
+  const rawLat = typeof args.latitude === "number" ? args.latitude : Number(args.latitude);
+  const rawLng = typeof args.longitude === "number" ? args.longitude : Number(args.longitude);
+  const userLat = Number.isFinite(rawLat) ? rawLat : 38.8977;
+  const userLng = Number.isFinite(rawLng) ? rawLng : -77.0365;
+  const stationLat = userLat + 0.008;
+  const stationLng = userLng + 0.005;
+  const stationName = "District Community Center";
+  const address = "123 Democracy Ave, Suite 100";
+  const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${encodeURIComponent(address)}&travelmode=driving`;
+
+  return {
+    toolType: "getPollingRoute",
+    data: {
+      stationName,
+      stationLat,
+      stationLng,
+      userLat,
+      userLng,
+      nearest: {
+        name: stationName,
+        address,
+        latitude: stationLat,
+        longitude: stationLng,
+        distance: 1.2,
+        navigationUrl,
+      },
+      allLocations: [
+        {
+          name: stationName,
+          address,
+          latitude: stationLat,
+          longitude: stationLng,
+          distance: 1.2,
+          navigationUrl,
+        },
+      ],
+      userLocation: { latitude: userLat, longitude: userLng },
+    },
+  };
+}
+
 export async function executeToolCall(
   functionName: string,
   args: Record<string, unknown>
@@ -227,47 +269,8 @@ export async function executeToolCall(
       };
 
     case "getPollingRoute":
-      {
-        const rawLat = typeof args.latitude === "number" ? args.latitude : Number(args.latitude);
-        const rawLng = typeof args.longitude === "number" ? args.longitude : Number(args.longitude);
-        const userLat = Number.isFinite(rawLat) ? rawLat : 38.8977;
-        const userLng = Number.isFinite(rawLng) ? rawLng : -77.0365;
-        const stationLat = userLat + 0.008;
-        const stationLng = userLng + 0.005;
-        const stationName = "District Community Center";
-        const address = "123 Democracy Ave, Suite 100";
-        const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${encodeURIComponent(address)}&travelmode=driving`;
+      return handleGetPollingRoute(args);
 
-        return {
-          toolType: "getPollingRoute",
-          data: {
-            stationName,
-            stationLat,
-            stationLng,
-            userLat,
-            userLng,
-            nearest: {
-              name: stationName,
-              address,
-              latitude: stationLat,
-              longitude: stationLng,
-              distance: 1.2,
-              navigationUrl,
-            },
-            allLocations: [
-              {
-                name: stationName,
-                address,
-                latitude: stationLat,
-                longitude: stationLng,
-                distance: 1.2,
-                navigationUrl,
-              },
-            ],
-            userLocation: { latitude: userLat, longitude: userLng },
-          },
-        };
-      }
 
     case "getLocalCandidates":
       return {

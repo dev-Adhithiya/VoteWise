@@ -62,8 +62,11 @@ if ($missingVars) {
     exit 1
 }
 
-# Construct NEXTAUTH_URL
-$NEXTAUTH_URL = "https://$SERVICE_NAME-$REGION-$PROJECT_ID.run.app"
+# Retrieve NEXTAUTH_URL from .env or fallback to construction
+$NEXTAUTH_URL = Get-EnvVariable "NEXTAUTH_URL"
+if ([string]::IsNullOrWhiteSpace($NEXTAUTH_URL)) {
+    $NEXTAUTH_URL = "https://$SERVICE_NAME-$REGION-$PROJECT_ID.run.app"
+}
 
 Write-Host "`n✅ All environment variables loaded successfully" -ForegroundColor Green
 Write-Host "`nSubmitting build to Cloud Build..." -ForegroundColor Cyan
