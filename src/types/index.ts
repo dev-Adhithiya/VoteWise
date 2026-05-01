@@ -215,3 +215,120 @@ export interface ChatApiResponse {
   /** Any tool results that should trigger UI components */
   toolResults?: ToolResult[];
 }
+
+/* --------------------------------------------------------------------------
+   AUTHENTICATION & USER TYPES (NEW)
+   -------------------------------------------------------------------------- */
+
+/** Authenticated user information from NextAuth session */
+export interface AuthUser {
+  /** User's unique ID from Google */
+  id: string;
+  /** User's email address */
+  email: string;
+  /** User's display name */
+  name?: string;
+  /** User's profile photo URL */
+  image?: string;
+}
+
+/** NextAuth session with OAuth tokens */
+export interface AuthSession {
+  user?: AuthUser;
+  /** Google OAuth access token (for API calls) */
+  accessToken?: string;
+  /** Google OAuth refresh token (for token refresh) */
+  refreshToken?: string;
+  /** Token expiration timestamp (milliseconds) */
+  expiresAt?: number;
+  /** Whether the token has expired */
+  tokenExpired?: boolean;
+  /** Expires timestamp from NextAuth */
+  expires?: string;
+}
+
+/** Google Calendar event */
+export interface CalendarEvent {
+  /** Event ID from Google Calendar */
+  id: string;
+  /** Event title */
+  summary: string;
+  /** Event description */
+  description?: string;
+  /** Start date/time (ISO format) */
+  start: {
+    date?: string;
+    dateTime?: string;
+  };
+  /** End date/time (ISO format) */
+  end: {
+    date?: string;
+    dateTime?: string;
+  };
+  /** Link to event in Google Calendar */
+  htmlLink?: string;
+}
+
+/** Google Tasks list */
+export interface TasksList {
+  /** Task list ID */
+  id: string;
+  /** Task list title */
+  title: string;
+  /** Last modified timestamp */
+  updated?: string;
+}
+
+/** Single task item */
+export interface TaskItem {
+  /** Task ID */
+  id: string;
+  /** Task list ID this task belongs to */
+  tasklist: string;
+  /** Task title */
+  title: string;
+  /** Task completion status */
+  status: "needsAction" | "completed";
+  /** Due date (optional) */
+  due?: string;
+  /** Notes attached to task */
+  notes?: string;
+}
+
+/** Polling location result from Google Maps */
+export interface PollingLocation {
+  /** Name of polling site */
+  name: string;
+  /** Full address */
+  address: string;
+  /** Latitude */
+  latitude: number;
+  /** Longitude */
+  longitude: number;
+  /** Distance from user (in miles/km) */
+  distance?: number;
+  /** Estimated travel time */
+  travelTime?: string;
+  /** Website URL if available */
+  website?: string;
+  /** Phone number if available */
+  phone?: string;
+}
+
+/** User's current location */
+export interface UserLocation {
+  /** Latitude coordinate */
+  latitude: number;
+  /** Longitude coordinate */
+  longitude: number;
+  /** Country name */
+  country: string;
+  /** Country code (US, UK, IN) */
+  countryCode: "US" | "UK" | "IN" | "UNKNOWN";
+  /** City name (if available) */
+  city?: string;
+  /** Accuracy in meters (browser geolocation) */
+  accuracy?: number;
+  /** Timestamp when location was detected */
+  timestamp: number;
+}

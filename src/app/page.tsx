@@ -22,21 +22,39 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import Sidebar from "@/components/Sidebar";
 import GeminiChat from "@/components/GeminiChat";
 import ElectionTimeline from "@/components/ElectionTimeline";
 import LanguageToggle from "@/components/LanguageToggle";
+import LoginButton from "@/components/LoginButton";
+import TasksPanel from "@/components/TasksPanel";
+import { useUserLocation, LocationStatus } from "@/components/LocationDetector";
 import type { SupportedLanguage } from "@/types";
 
 export default function DashboardPage() {
   /* -- Sidebar State -- */
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  /* -- Tasks Panel State -- */
+  const [tasksOpen, setTasksOpen] = useState(false);
+
   /* -- Language State -- */
   const [language, setLanguage] = useState<SupportedLanguage>("en");
 
   /* -- Injected Message State (from sidebar/cards) -- */
   const [injectedMessage, setInjectedMessage] = useState<string>("");
+
+  /* -- Auth State -- */
+  const { data: session } = useSession();
+  const isAuthed = !!session?.user;
+
+  /* -- Location Detection -- */
+  const {
+    location,
+    country,
+    isLoading: locationLoading,
+  } = useUserLocation({ enabled: isAuthed });
 
   /**
    * Handle topic selection from the sidebar.
@@ -93,6 +111,19 @@ export default function DashboardPage() {
 
           {/* Right side controls */}
           <div className="flex items-center gap-3">
+            {/* Location Status */}
+            {isAuthed ? (
+              <LocationStatus
+                location={location}
+                isLoading={locationLoading}
+                className="hidden md:flex"
+              />
+            ) : (
+              <span className="hidden md:inline text-xs text-foreground-muted">
+                Sign in to enable location
+              </span>
+            )}
+
             {/* Status indicator */}
             <div className="hidden sm:flex items-center gap-2 glass-panel rounded-full px-3 py-1.5">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -104,6 +135,23 @@ export default function DashboardPage() {
               currentLang={language}
               onLanguageChange={setLanguage}
             />
+
+            {/* Tasks Toggle */}
+            <button
+              onClick={() => setTasksOpen((open) => !open)}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
+                ${
+                  tasksOpen
+                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
+                    : "bg-white/5 border-white/10 text-foreground-muted hover:bg-white/10 hover:text-white"
+                }`}
+              aria-pressed={tasksOpen}
+            >
+              {tasksOpen ? "Hide Tasks" : "Tasks"}
+            </button>
+
+            {/* Login Button */}
+            <LoginButton compact />
           </div>
         </header>
 
@@ -114,6 +162,9 @@ export default function DashboardPage() {
           <GeminiChat
             injectedMessage={injectedMessage}
             onInjectedMessageProcessed={handleInjectedMessageProcessed}
+            location={location}
+            country={country}
+            allowGeolocation={isAuthed}
           />
         </div>
 
@@ -121,9 +172,15 @@ export default function DashboardPage() {
             ELECTION TIMELINE — Collapsible bottom section
             ────────────────────────────────────────────────────────────── */}
         <div className="border-t border-white/5 px-4 md:px-8 py-3 flex-shrink-0">
-          <ElectionTimeline />
+          <ElectionTimeline countryCode={country} />
         </div>
       </main>
+
+      <TasksPanel
+        isOpen={tasksOpen}
+        onToggle={() => setTasksOpen((open) => !open)}
+        countryCode={country}
+      />
     </>
   );
 }

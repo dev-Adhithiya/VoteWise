@@ -86,8 +86,16 @@ function getFallbackResponse(message: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages } = await request.json();
+    const body = await request.json().catch(() => null);
+    const messages = Array.isArray(body?.messages) ? body.messages : [];
     const lastMessage = messages[messages.length - 1];
+
+    if (!lastMessage || typeof lastMessage.content !== "string") {
+      return NextResponse.json(
+        { text: "Invalid request: messages array is required.", toolResults: [] },
+        { status: 400 }
+      );
+    }
     const model = createGeminiModel();
 
     /* If no API key, use intelligent fallback responses */
@@ -100,10 +108,13 @@ export async function POST(request: NextRequest) {
     }
 
     /* Build conversation history for Gemini */
-    const history = messages.slice(0, -1).map((msg: { role: string; content: string }) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
+    const history = messages
+      .slice(0, -1)
+      .filter((msg: { role?: string; content?: string }) => typeof msg?.content === "string")
+      .map((msg: { role?: string; content: string }) => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.content }],
+      }));
 
     /* Start chat with history */
     const chat = model.startChat({ history });

@@ -9,7 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   const { latitude, longitude } = await request.json();
-  if (!latitude || !longitude) {
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude)
+  ) {
     return NextResponse.json({ success: false, error: "Coordinates required" }, { status: 400 });
   }
 

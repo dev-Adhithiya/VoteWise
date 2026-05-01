@@ -3,66 +3,90 @@
  * ELECTION REMINDER MODAL
  * ==========================================================================
  * Glassmorphic modal for adding Election Day to Google Calendar.
- * Auto-calculates the next Election Day (first Tuesday after first Monday in November).
+ * Integrates with Google Calendar API via OAuth tokens.
+ * Country-aware election date calculation.
  */
 "use client";
 
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-/** Calculate next U.S. Election Day (first Tue after first Mon in Nov, even years) */
-function getNextElectionDay(): Date {
-  const now = new Date();
-  let year = now.getFullYear();
-  if (year % 2 !== 0) year += 1;
-
-  const nov1 = new Date(year, 10, 1);
-  const dayOfWeek = nov1.getDay();
-  const daysToMon = dayOfWeek <= 1 ? (1 - dayOfWeek) : (8 - dayOfWeek);
-  const electionDay = new Date(year, 10, 1 + daysToMon + 1);
-
-  if (electionDay < now) {
-    year += 2;
-    const n1 = new Date(year, 10, 1);
-    const d = n1.getDay();
-    const dm = d <= 1 ? (1 - d) : (8 - d);
-    return new Date(year, 10, 1 + dm + 1);
-  }
-  return electionDay;
-}
-
-/** Generate Google Calendar URL with pre-filled election event */
-function makeCalendarUrl(date: Date): string {
-  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").split("T")[0];
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: "🗳️ Election Day — Don't Forget to Vote!",
-    dates: `${fmt(date)}/${fmt(new Date(date.getTime() + 86400000))}`,
-    details: "Today is Election Day! Have your voter ID ready and know your polling location.\n\nPowered by VoteWise AI",
-    sf: "true",
-  });
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
+import { useSession } from "next-auth/react";
 
 interface ElectionReminderModalProps {
   isOpen: boolean;
   onClose: () => void;
+  countryCode?: string;
+  location?: string;
 }
 
-export default function ElectionReminderModal({ isOpen, onClose }: ElectionReminderModalProps) {
-  const electionDay = getNextElectionDay();
-  const calendarUrl = makeCalendarUrl(electionDay);
+export default function ElectionReminderModal({
+  isOpen,
+  onClose,
+  countryCode = "US",
+  location,
+}: ElectionReminderModalProps) {
+  const { data: session } = useSession();
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleEscape = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  }, [onClose]);
+  const handleEscape = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose]
+  );
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isOpen) {
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);
     }
   }, [isOpen, handleEscape]);
+
+  const handleCreateEvent = async () => {
+    if (!session?.user) {
+      window.location.href = "/api/auth/signin";
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/calendar/create-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countryCode }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create calendar event");
+      }
+
+      const data = await response.json();
+      setSuccess(true);
+
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        onClose();
+        setSuccess(false);
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const countryNames: Record<string, string> = {
+    US: "United States",
+    UK: "United Kingdom",
+    IN: "India",
+  };
+
+  const countryName = countryNames[countryCode] || "Your Country";
 
   return (
     <AnimatePresence>
@@ -85,18 +109,113 @@ export default function ElectionReminderModal({ isOpen, onClose }: ElectionRemin
             className="glass-modal rounded-3xl p-8 max-w-md w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={onClose} className="absolute top-4 right-4 text-foreground-muted hover:text-white transition-colors text-xl rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50" aria-label="Close modal">✕</button>
-            <div className="text-5xl mb-4 text-center">📅</div>
-            <h2 className="text-2xl font-bold text-white text-center mb-2" style={{ fontFamily: "var(--font-outfit)" }}>Election Day Reminder</h2>
-            <div className="text-center mb-6">
-              <p className="text-foreground-dim mb-2">The next Election Day is:</p>
-              <p className="text-gold-glow text-2xl font-bold">{electionDay.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
-            </div>
-            <p className="text-foreground-dim text-sm text-center mb-6 leading-relaxed">Add a reminder to your Google Calendar so you never miss an election.</p>
-            <div className="flex flex-col gap-3">
-              <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="w-full py-3.5 px-6 rounded-xl font-semibold text-white text-center bg-gradient-to-r from-accent-blue to-blue-600 hover:from-blue-500 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-accent-blue/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50">🗓️ Add to Google Calendar</a>
-              <button onClick={onClose} className="w-full py-3 px-6 rounded-xl font-medium text-foreground-dim hover:text-white bg-white/5 hover:bg-white/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50">Maybe Later</button>
-            </div>
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-foreground-muted hover:text-white transition-colors text-xl rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50"
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+
+            {!success ? (
+              <>
+                <div className="text-5xl mb-4 text-center">📅</div>
+                <h2
+                  className="text-2xl font-bold text-white text-center mb-2"
+                  style={{ fontFamily: "var(--font-outfit)" }}
+                >
+                  Election Day Reminder
+                </h2>
+
+                <div className="space-y-3 mb-6">
+                  {/* Country */}
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p className="text-xs text-blue-300 uppercase font-semibold mb-1">
+                      Country
+                    </p>
+                    <p className="text-lg text-white font-semibold">{countryName}</p>
+                  </div>
+
+                  {/* Location if available */}
+                  {location && (
+                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <p className="text-xs text-green-300 uppercase font-semibold mb-1">
+                        Polling Location
+                      </p>
+                      <p className="text-sm text-green-200">{location}</p>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <p className="text-foreground-dim text-sm text-center leading-relaxed">
+                    Add Election Day to your Google Calendar so you never forget to vote!
+                  </p>
+
+                  {/* Error if any */}
+                  {error && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                      <p className="text-sm text-red-300">{error}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {session?.user ? (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleCreateEvent}
+                      disabled={isLoading}
+                      className="w-full py-3.5 px-6 rounded-xl font-semibold text-white
+                                 bg-gradient-to-r from-accent-blue to-blue-600 
+                                 hover:from-blue-500 hover:to-blue-700 transition-all 
+                                 duration-300 shadow-lg hover:shadow-accent-blue/25 
+                                 focus-visible:outline-none focus-visible:ring-2 
+                                 focus-visible:ring-accent-blue/50 disabled:opacity-50"
+                    >
+                      {isLoading ? "Adding..." : "🗓️ Add to Google Calendar"}
+                    </motion.button>
+                  ) : (
+                    <button
+                      onClick={() => (window.location.href = "/api/auth/signin")}
+                      className="w-full py-3.5 px-6 rounded-xl font-semibold text-white
+                                 bg-gradient-to-r from-accent-blue to-blue-600 
+                                 hover:from-blue-500 hover:to-blue-700 transition-all"
+                    >
+                      🔐 Sign In to Add Event
+                    </button>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="w-full py-3 px-6 rounded-xl font-medium text-foreground-dim 
+                               hover:text-white bg-white/5 hover:bg-white/10 transition-all 
+                               focus-visible:outline-none focus-visible:ring-2 
+                               focus-visible:ring-accent-blue/50"
+                  >
+                    Maybe Later
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Success state */}
+                <div className="text-center py-8">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200 }}
+                    className="w-16 h-16 rounded-full bg-green-500/20 border-2 border-green-500
+                               flex items-center justify-center mx-auto mb-4"
+                  >
+                    <span className="text-3xl">✓</span>
+                  </motion.div>
+                  <h3 className="text-xl font-bold text-green-300 mb-2">Event Added!</h3>
+                  <p className="text-sm text-white/60">
+                    Election Day reminder added to your Google Calendar
+                  </p>
+                </div>
+              </>
+            )}
           </motion.div>
         </motion.div>
       )}

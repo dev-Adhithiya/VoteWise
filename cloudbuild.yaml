@@ -1,13 +1,13 @@
 steps:
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$COMMIT_SHA', '.']
+    args: ['build', '-t', '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$BUILD_ID', '.']
 
   # 2. Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$COMMIT_SHA']
+    args: ['push', '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$BUILD_ID']
 
-  # 3. Deploy to Cloud Run
+  # 3. Deploy to Cloud Run with environment variables
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -15,16 +15,32 @@ steps:
       - 'deploy'
       - '$_SERVICE_NAME'
       - '--image'
-      - '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$COMMIT_SHA'
+      - '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$BUILD_ID'
       - '--region'
       - '$_LOCATION'
       - '--allow-unauthenticated'
+      - '--set-env-vars=GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET},NEXTAUTH_SECRET=${_NEXTAUTH_SECRET},GEMINI_API_KEY=${_GEMINI_API_KEY},GOOGLE_CIVIC_API_KEY=${_GOOGLE_CIVIC_API_KEY},GOOGLE_FACTCHECK_API_KEY=${_GOOGLE_FACTCHECK_API_KEY},GOOGLE_MAPS_API_KEY=${_GOOGLE_MAPS_API_KEY},YOUTUBE_API_KEY=${_YOUTUBE_API_KEY},NEXT_PUBLIC_GOOGLE_MAPS_KEY=${_NEXT_PUBLIC_GOOGLE_MAPS_KEY},NEXTAUTH_URL=${_NEXTAUTH_URL}'
 
 images:
-  - '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$COMMIT_SHA'
+  - '$_LOCATION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE_NAME:$BUILD_ID'
 
 substitutions:
   _LOCATION: us-central1
   _REPOSITORY: votewise-repo
   _IMAGE_NAME: votewise-app
   _SERVICE_NAME: votewise-service
+  _GOOGLE_CLIENT_ID: ''
+  _GOOGLE_CLIENT_SECRET: ''
+  _NEXTAUTH_SECRET: ''
+  _GEMINI_API_KEY: ''
+  _GOOGLE_CIVIC_API_KEY: ''
+  _GOOGLE_FACTCHECK_API_KEY: ''
+  _GOOGLE_MAPS_API_KEY: ''
+  _YOUTUBE_API_KEY: ''
+  _NEXT_PUBLIC_GOOGLE_MAPS_KEY: ''
+  _NEXTAUTH_URL: 'https://votewise-service-REGION-PROJECTID.run.app'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'
+

@@ -8,7 +8,8 @@
  * 2. SEO meta tags for election education discoverability
  * 3. Animated gradient background div (the "Obsidian Frost" atmosphere)
  * 4. ARIA landmarks for accessibility compliance
- * 5. Dark theme enforced at the HTML level
+ * 5. NextAuth SessionProvider for authentication context
+ * 6. Dark theme enforced at the HTML level
  * 
  * This layout wraps all pages and provides the visual foundation
  * that all glassmorphism components sit on top of.
@@ -16,6 +17,7 @@
 
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
+import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import "./globals.css";
 
 /* --------------------------------------------------------------------------
@@ -62,7 +64,7 @@ export const metadata: Metadata = {
 
 /* --------------------------------------------------------------------------
    ROOT LAYOUT COMPONENT
-   Renders the HTML shell with fonts, background, and content area.
+   Renders the HTML shell with fonts, background, content area, and auth provider.
    -------------------------------------------------------------------------- */
 export default function RootLayout({
   children,
@@ -78,20 +80,27 @@ export default function RootLayout({
     >
       <body className="min-h-screen font-[family-name:var(--font-inter)] antialiased">
         {/* 
-          ANIMATED GRADIENT BACKGROUND
-          This fixed div creates the shifting dark gradient atmosphere.
-          All content sits on top of this via relative/z-index positioning.
+          NEXTAUTH SESSION PROVIDER
+          Wraps the entire app to provide useSession() hook access.
+          This is required for client-side auth state management.
         */}
-        <div className="animated-bg" aria-hidden="true" />
+        <AuthSessionProvider>
+          {/* 
+            ANIMATED GRADIENT BACKGROUND
+            This fixed div creates the shifting dark gradient atmosphere.
+            All content sits on top of this via relative/z-index positioning.
+          */}
+          <div className="animated-bg" aria-hidden="true" />
 
-        {/* 
-          MAIN CONTENT WRAPPER
-          Positioned above the background with z-index.
-          Uses flex layout for the sidebar + main area structure.
-        */}
-        <div className="relative z-10 flex h-screen overflow-hidden">
-          {children}
-        </div>
+          {/* 
+            MAIN CONTENT WRAPPER
+            Positioned above the background with z-index.
+            Uses flex layout for the sidebar + main area structure.
+          */}
+          <div className="relative z-10 flex h-screen overflow-hidden">
+            {children}
+          </div>
+        </AuthSessionProvider>
       </body>
     </html>
   );

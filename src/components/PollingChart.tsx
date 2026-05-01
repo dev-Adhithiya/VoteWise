@@ -48,18 +48,20 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 interface PollingChartProps {
   /** Polling data array */
   data?: PollingDataPoint[];
+  /** Optional race label for the chart header */
+  race?: string;
 }
 
-export default function PollingChart({ data = DEMO_DATA }: PollingChartProps) {
+export default function PollingChart({ data = DEMO_DATA, race }: PollingChartProps) {
   return (
     <div className="glass-panel rounded-2xl p-6 w-full max-w-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-white" style={{ fontFamily: "var(--font-outfit)" }}>
-          📊 Polls vs. Betting Markets
+          📊 Polls vs. Betting Markets{race ? ` — ${race}` : ""}
         </h3>
         <span className="text-xs text-foreground-muted bg-white/5 px-3 py-1 rounded-full">
-          Live Data
+          {race ? "Race Data" : "Live Data"}
         </span>
       </div>
 

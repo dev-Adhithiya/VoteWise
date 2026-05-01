@@ -10,13 +10,17 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "next-auth": "^5.0.0-beta.24",
+    "googleapis": "^139.0.0",
+    "@googlemaps/js-api-loader": "^1.16.2",
     "framer-motion": "^12.38.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "jose": "^5.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

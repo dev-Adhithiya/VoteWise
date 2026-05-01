@@ -181,13 +181,17 @@ export function createGeminiModel() {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
+    console.error("GEMINI_API_KEY is missing from environment variables.");
     return null;
   }
+
+  // Log the first few characters of the API key for debugging (safe)
+  console.log(`Initializing Gemini with key starting with: ${apiKey.substring(0, 7)}...`);
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
     systemInstruction: SYSTEM_PROMPT,
   });
@@ -223,16 +227,47 @@ export async function executeToolCall(
       };
 
     case "getPollingRoute":
-      return {
-        toolType: "getPollingRoute",
-        data: {
-          stationName: "District Community Center",
-          stationLat: (args.latitude as number) + 0.008,
-          stationLng: (args.longitude as number) + 0.005,
-          userLat: args.latitude,
-          userLng: args.longitude,
-        },
-      };
+      {
+        const rawLat = typeof args.latitude === "number" ? args.latitude : Number(args.latitude);
+        const rawLng = typeof args.longitude === "number" ? args.longitude : Number(args.longitude);
+        const userLat = Number.isFinite(rawLat) ? rawLat : 38.8977;
+        const userLng = Number.isFinite(rawLng) ? rawLng : -77.0365;
+        const stationLat = userLat + 0.008;
+        const stationLng = userLng + 0.005;
+        const stationName = "District Community Center";
+        const address = "123 Democracy Ave, Suite 100";
+        const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${encodeURIComponent(address)}&travelmode=driving`;
+
+        return {
+          toolType: "getPollingRoute",
+          data: {
+            stationName,
+            stationLat,
+            stationLng,
+            userLat,
+            userLng,
+            nearest: {
+              name: stationName,
+              address,
+              latitude: stationLat,
+              longitude: stationLng,
+              distance: 1.2,
+              navigationUrl,
+            },
+            allLocations: [
+              {
+                name: stationName,
+                address,
+                latitude: stationLat,
+                longitude: stationLng,
+                distance: 1.2,
+                navigationUrl,
+              },
+            ],
+            userLocation: { latitude: userLat, longitude: userLng },
+          },
+        };
+      }
 
     case "getLocalCandidates":
       return {

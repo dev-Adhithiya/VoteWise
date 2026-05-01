@@ -5,6 +5,12 @@
  * Full chat interface with message history, Gemini API integration,
  * tool result rendering, markdown support, and ARIA live regions.
  * 
+ * Enhanced with:
+ * - Location context (country-aware features)
+ * - Google Calendar, Tasks, Maps, Civic API integration
+ * - Gemini Search Grounding for candidate research
+ * - Polling data and prediction markets
+ * 
  * Architecture:
  * - Maintains full message history in state
  * - Sends messages to /api/chat endpoint
@@ -27,7 +33,13 @@ import VerdictCard from "./VerdictCard";
 import GoogleWalletButton from "./GoogleWalletButton";
 import ElectionReminderModal from "./ElectionReminderModal";
 import DossierModal from "./DossierModal";
-import type { ChatMessage as ChatMessageType, ToolResult, Candidate } from "@/types";
+import type { Location, CountryCode } from "@/lib/geolocation";
+import type {
+  ChatMessage as ChatMessageType,
+  ToolResult,
+  Candidate,
+  PollingDataPoint,
+} from "@/types";
 
 /* --------------------------------------------------------------------------
    COMPONENT
@@ -37,9 +49,24 @@ interface GeminiChatProps {
   injectedMessage?: string;
   /** Callback to clear the injected message after processing */
   onInjectedMessageProcessed?: () => void;
+  /** User location from parent (login-gated) */
+  location?: Location | null;
+  /** Country code from location detection */
+  country?: CountryCode;
+  /** Whether geolocation prompts are allowed */
+  allowGeolocation?: boolean;
 }
 
-export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed }: GeminiChatProps) {
+export default function GeminiChat({
+  injectedMessage,
+  onInjectedMessageProcessed,
+  location,
+  country,
+  allowGeolocation = false,
+}: GeminiChatProps) {
+  const resolvedCountry = country || "UNKNOWN";
+  const fallbackRegion = resolvedCountry === "UNKNOWN" ? "US" : resolvedCountry;
+
   /* -- State Management -- */
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -48,6 +75,13 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showDossierModal, setShowDossierModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<string>("");
+  const [pollingLocation, setPollingLocation] = useState<{
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [pollingData, setPollingData] = useState<PollingDataPoint[]>([]);
 
   /* -- Refs -- */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -58,7 +92,9 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading, scrollToBottom]);
 
   /* Handle externally injected messages (from sidebar / welcome cards) */
   useEffect(() => {
@@ -66,13 +102,12 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
       sendMessage(injectedMessage);
       onInjectedMessageProcessed?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [injectedMessage]);
 
   /**
    * Send a message to the Gemini API and handle the response.
-   * Manages the full lifecycle: add user message → show typing →
-   * call API → process tool results → add assistant message.
+   * Includes location context for country-aware features.
    */
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -94,7 +129,7 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
     setIsLoading(true);
 
     try {
-      /* Call the chat API endpoint */
+      /* Call the chat API endpoint with location context */
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,10 +138,19 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
             role: m.role,
             content: m.content,
           })),
+          location: {
+            latitude: location?.latitude || 0,
+            longitude: location?.longitude || 0,
+            countryCode: resolvedCountry,
+            address: location?.city ? `${location.city}, ${location.country}` : undefined,
+          },
         }),
       });
-
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        const message = data?.text || data?.error || "Failed to fetch chat response";
+        throw new Error(message);
+      }
 
       /* Create assistant message with any tool results */
       const assistantMessage: ChatMessageType = {
@@ -119,11 +163,34 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      /* Handle specific tool results that trigger UI components */
+      /* Handle specific tool results that trigger UI interactions */
       if (data.toolResults) {
         for (const result of data.toolResults) {
           if (result.toolType === "getElectionReminder") {
             setShowReminderModal(true);
+          } else if (result.toolType === "getLocalCandidates") {
+            setCandidates((result.data.candidates as Candidate[]) || []);
+          } else if (result.toolType === "getPollingData") {
+            setPollingData((result.data.results as PollingDataPoint[]) || []);
+          } else if (result.toolType === "getPollingRoute") {
+            const nearest = (result.data.nearest as any) || {
+              address: result.data.stationName,
+              latitude: result.data.stationLat,
+              longitude: result.data.stationLng,
+            };
+
+            if (
+              nearest &&
+              typeof nearest.address === "string" &&
+              typeof nearest.latitude === "number" &&
+              typeof nearest.longitude === "number"
+            ) {
+              setPollingLocation({
+                address: nearest.address,
+                latitude: nearest.latitude,
+                longitude: nearest.longitude,
+              });
+            }
           }
         }
       }
@@ -132,7 +199,8 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
       const errorMessage: ChatMessageType = {
         id: `error-${Date.now()}`,
         role: "assistant",
-        content: "I'm having trouble connecting right now. Please try again in a moment.",
+        content:
+          "I'm having trouble connecting right now. Please try again in a moment.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -168,39 +236,88 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
   const renderToolResult = (result: ToolResult, index: number) => {
     switch (result.toolType) {
       case "setupVoterChecklist":
-        return <InteractiveChecklist key={index} region={(result.data.region as string) || "US"} />;
+        return (
+          <InteractiveChecklist
+            key={index}
+            region={(result.data.region as string) || fallbackRegion}
+          />
+        );
       case "getPollingRoute":
+        {
+          const nearest = (result.data.nearest as any) || {};
+          const stationLat =
+            typeof nearest.latitude === "number"
+              ? nearest.latitude
+              : (result.data.stationLat as number | undefined);
+          const stationLng =
+            typeof nearest.longitude === "number"
+              ? nearest.longitude
+              : (result.data.stationLng as number | undefined);
+          const stationName =
+            (nearest.name as string) || (result.data.stationName as string) || "Polling Station";
+          const userLat =
+            location?.latitude ??
+            (result.data.userLocation as any)?.latitude ??
+            (result.data.userLat as number | undefined);
+          const userLng =
+            location?.longitude ??
+            (result.data.userLocation as any)?.longitude ??
+            (result.data.userLng as number | undefined);
+
         return (
           <VotingRouteMap
             key={index}
-            userLat={result.data.userLat as number}
-            userLng={result.data.userLng as number}
-            stationLat={result.data.stationLat as number}
-            stationLng={result.data.stationLng as number}
-            stationName={result.data.stationName as string}
+            userLat={userLat}
+            userLng={userLng}
+            stationLat={stationLat}
+            stationLng={stationLng}
+            stationName={stationName}
+            countryCode={resolvedCountry}
+            allowGeolocation={allowGeolocation}
           />
         );
+        }
       case "getLocalCandidates":
         return (
           <CandidateCards
             key={index}
-            candidates={result.data.candidates as Candidate[]}
+            candidates={
+              ((result.data.contests as any[])?.[0]?.candidates as Candidate[]) ||
+              (result.data.candidates as Candidate[]) ||
+              candidates
+            }
             onResearch={handleResearchCandidate}
           />
         );
       case "getPollingData":
-        return <PollingChart key={index} data={result.data.results as Array<{ name: string; polls: number; bettingMarkets: number; color: string }>} />;
+        {
+          const chartData =
+            (result.data.results as PollingDataPoint[]) || pollingData || [];
+          const raceLabel = (result.data.race as string) || "Election";
+        return (
+          <PollingChart
+            key={index}
+            race={raceLabel}
+            data={chartData}
+          />
+        );
+        }
       case "verifyPoliticalClaim":
         return (
           <VerdictCard
             key={index}
             verdict={{
-              claim: result.data.claim as string,
-              claimant: result.data.claimant as string,
-              rating: result.data.rating as string,
-              verdictLevel: result.data.verdictLevel as "true" | "false" | "misleading" | "unknown",
-              publisher: result.data.publisher as string,
-              url: result.data.url as string,
+              claim: (result.data.claim as string) || "",
+              claimant: (result.data.claimant as string) || "",
+              rating: (result.data.rating as string) || "",
+              verdictLevel:
+                ((result.data.verdictLevel as any) || "unknown") as
+                  | "true"
+                  | "false"
+                  | "misleading"
+                  | "unknown",
+              publisher: (result.data.publisher as string) || "",
+              url: (result.data.url as string) || "",
             }}
           />
         );
@@ -296,8 +413,17 @@ export default function GeminiChat({ injectedMessage, onInjectedMessageProcessed
       </div>
 
       {/* MODALS */}
-      <ElectionReminderModal isOpen={showReminderModal} onClose={() => setShowReminderModal(false)} />
-      <DossierModal isOpen={showDossierModal} onClose={() => setShowDossierModal(false)} candidateName={selectedCandidate} />
+      <ElectionReminderModal
+        isOpen={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        countryCode={country}
+        location={pollingLocation?.address}
+      />
+      <DossierModal
+        isOpen={showDossierModal}
+        onClose={() => setShowDossierModal(false)}
+        candidateName={selectedCandidate}
+      />
     </div>
   );
 }

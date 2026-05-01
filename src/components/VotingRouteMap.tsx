@@ -22,6 +22,10 @@ interface VotingRouteMapProps {
   stationLng?: number;
   /** Polling station name/address */
   stationName?: string;
+  /** Optional country code for country-aware features */
+  countryCode?: string;
+  /** Whether to request browser geolocation */
+  allowGeolocation?: boolean;
 }
 
 /** Default demo coordinates (Washington D.C. area) */
@@ -34,6 +38,8 @@ export default function VotingRouteMap({
   stationLat = DEFAULT_STATION.lat,
   stationLng = DEFAULT_STATION.lng,
   stationName = DEFAULT_STATION.name,
+  countryCode,
+  allowGeolocation = true,
 }: VotingRouteMapProps) {
   const [isLocating, setIsLocating] = useState(false);
   const [currentLat, setCurrentLat] = useState(userLat);
@@ -41,7 +47,7 @@ export default function VotingRouteMap({
 
   /** Request browser geolocation to get user's live coordinates */
   const getLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!allowGeolocation || !navigator.geolocation) return;
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -54,7 +60,11 @@ export default function VotingRouteMap({
     );
   };
 
-  useEffect(() => { getLocation(); }, []);
+  useEffect(() => {
+    if (allowGeolocation) {
+      getLocation();
+    }
+  }, [allowGeolocation]);
 
   /** Google Maps navigation URL — opens native app on mobile */
   const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${stationLat},${stationLng}&travelmode=driving`;
@@ -108,10 +118,14 @@ export default function VotingRouteMap({
           </div>
           <button
             onClick={getLocation}
-            disabled={isLocating}
+            disabled={isLocating || !allowGeolocation}
             className="text-xs text-accent-blue hover:text-accent-blue-light transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/50 rounded px-2 py-1"
           >
-            {isLocating ? "Locating..." : "📡 Update Location"}
+            {!allowGeolocation
+              ? "Sign in to enable"
+              : isLocating
+                ? "Locating..."
+                : "📡 Update Location"}
           </button>
         </div>
 

@@ -26,32 +26,78 @@ import { motion } from "framer-motion";
 import type { TimelineStep } from "@/types";
 
 /* --------------------------------------------------------------------------
-   TIMELINE DATA
-   12 steps in the U.S. presidential election cycle.
-   The "status" field determines visual styling:
-   - completed: solid accent blue, checkmark
-   - in-progress: pulsing glow animation
-   - upcoming: dimmed/muted appearance
+   COUNTRY-SPECIFIC TIMELINE DATA
+   Election timeline varies by country. Timeline steps and dates are
+   constructed based on user's detected location (countryCode).
    -------------------------------------------------------------------------- */
-const TIMELINE_STEPS: TimelineStep[] = [
-  { number: 1, label: "Announcement", status: "completed", date: "2024-2025" },
-  { number: 2, label: "Candidate Filing", status: "completed", date: "Early 2025" },
-  { number: 3, label: "Primary Debates", status: "completed", date: "Mid 2025" },
-  { number: 4, label: "Primary Elections", status: "completed", date: "Feb-Jun 2026" },
-  { number: 5, label: "National Conventions", status: "completed", date: "Jul-Aug 2026" },
-  { number: 6, label: "General Debates", status: "in-progress", date: "Sep-Oct 2026" },
-  { number: 7, label: "Early Voting Begins", status: "upcoming", date: "Oct 2026" },
-  { number: 8, label: "Election Day", status: "upcoming", date: "Nov 3, 2026" },
-  { number: 9, label: "Provisional Counting", status: "upcoming", date: "Nov 2026" },
-  { number: 10, label: "State Certification", status: "upcoming", date: "Dec 2026" },
-  { number: 11, label: "Electoral College Vote", status: "upcoming", date: "Dec 2026" },
-  { number: 12, label: "Inauguration", status: "upcoming", date: "Jan 20, 2027" },
-];
+
+type CountryCode = "US" | "UK" | "IN" | "UNKNOWN";
+
+function getTimelineForCountry(countryCode: CountryCode): TimelineStep[] {
+  // Default to US timeline if country is unknown
+  if (countryCode === "UNKNOWN" || countryCode === "US") {
+    return [
+      { number: 1, label: "Announcement", status: "completed", date: "2024-2025" },
+      { number: 2, label: "Candidate Filing", status: "completed", date: "Early 2025" },
+      { number: 3, label: "Primary Debates", status: "completed", date: "Mid 2025" },
+      { number: 4, label: "Primary Elections", status: "completed", date: "Feb-Jun 2026" },
+      { number: 5, label: "National Conventions", status: "completed", date: "Jul-Aug 2026" },
+      { number: 6, label: "General Debates", status: "in-progress", date: "Sep-Oct 2026" },
+      { number: 7, label: "Early Voting Begins", status: "upcoming", date: "Oct 2026" },
+      { number: 8, label: "Election Day (US)", status: "upcoming", date: "Nov 3, 2026" },
+      { number: 9, label: "Provisional Counting", status: "upcoming", date: "Nov 2026" },
+      { number: 10, label: "State Certification", status: "upcoming", date: "Dec 2026" },
+      { number: 11, label: "Electoral College Vote", status: "upcoming", date: "Dec 2026" },
+      { number: 12, label: "Inauguration", status: "upcoming", date: "Jan 20, 2027" },
+    ];
+  }
+
+  if (countryCode === "UK") {
+    return [
+      { number: 1, label: "Parliamentary Dissolution", status: "completed", date: "Apr 2024" },
+      { number: 2, label: "Candidate Registration", status: "completed", date: "Early 2025" },
+      { number: 3, label: "Electoral Register Review", status: "completed", date: "Feb-Mar 2025" },
+      { number: 4, label: "Campaign Period", status: "in-progress", date: "Mar-May 2025" },
+      { number: 5, label: "Registration Deadline", status: "upcoming", date: "May 2, 2025" },
+      { number: 6, label: "Proxy Vote Application", status: "upcoming", date: "May 5, 2025" },
+      { number: 7, label: "Early Voting Begins", status: "upcoming", date: "May 8, 2025" },
+      { number: 8, label: "General Election (UK)", status: "upcoming", date: "May 15, 2025" },
+      { number: 9, label: "Vote Counting", status: "upcoming", date: "May 15-16, 2025" },
+      { number: 10, label: "Results Declared", status: "upcoming", date: "May 16, 2025" },
+      { number: 11, label: "Seat Allocation", status: "upcoming", date: "May 2025" },
+      { number: 12, label: "New Parliament Convenes", status: "upcoming", date: "May 2025" },
+    ];
+  }
+
+  if (countryCode === "IN") {
+    return [
+      { number: 1, label: "Election Commission Notification", status: "completed", date: "Jan 2024" },
+      { number: 2, label: "Candidate Nomination", status: "completed", date: "Jan-Feb 2024" },
+      { number: 3, label: "Electoral Roll Finalization", status: "completed", date: "Feb 2024" },
+      { number: 4, label: "Campaign Phase 1", status: "in-progress", date: "Feb-Mar 2024" },
+      { number: 5, label: "Campaign Phase 2", status: "upcoming", date: "Mar 2024" },
+      { number: 6, label: "Campaign Phase 3", status: "upcoming", date: "Mar-Apr 2024" },
+      { number: 7, label: "Polling Phase 1", status: "upcoming", date: "Apr 19, 2024" },
+      { number: 8, label: "Polling Phase 2-6", status: "upcoming", date: "Apr 26-May 10, 2024" },
+      { number: 9, label: "Vote Counting", status: "upcoming", date: "Jun 4, 2024" },
+      { number: 10, label: "Results Declared", status: "upcoming", date: "Jun 4, 2024" },
+      { number: 11, label: "Government Formation", status: "upcoming", date: "Jun 2024" },
+      { number: 12, label: "Cabinet Sworn In", status: "upcoming", date: "Jun 2024" },
+    ];
+  }
+
+  return [];
+}
 
 /* --------------------------------------------------------------------------
    TIMELINE COMPONENT
    -------------------------------------------------------------------------- */
-export default function ElectionTimeline() {
+interface ElectionTimelineProps {
+  countryCode?: CountryCode;
+}
+
+export default function ElectionTimeline({ countryCode = "UNKNOWN" }: ElectionTimelineProps) {
+  const TIMELINE_STEPS = getTimelineForCountry(countryCode);
   /* State to toggle the timeline panel open/closed */
   const [isExpanded, setIsExpanded] = useState(true);
 
