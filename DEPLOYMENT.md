@@ -101,7 +101,9 @@ _GOOGLE_FACTCHECK_API_KEY=YOUR_KEY,\
 _GOOGLE_MAPS_API_KEY=YOUR_KEY,\
 _YOUTUBE_API_KEY=YOUR_KEY,\
 _NEXT_PUBLIC_GOOGLE_MAPS_KEY=YOUR_KEY,\
-_NEXTAUTH_URL=https://votewise-service-us-central1-votewise-495010.run.app"
+_NEXTAUTH_URL=https://votewise-service-us-central1-votewise-495010.run.app,\
+_AUTH_URL=https://votewise-service-us-central1-votewise-495010.run.app,\
+_GEMINI_MODEL=gemini-2.0-flash"
 ```
 
 ## Step 3: Monitor Deployment
@@ -146,6 +148,7 @@ npm run dev
 ### OAuth callback URI mismatch
 - Update both `.env` (NEXTAUTH_URL) and Google Console OAuth credentials
 - Format: `https://SERVICE-REGION-PROJECT.run.app`
+- In production, keep both `NEXTAUTH_URL` and `AUTH_URL` set to the same HTTPS base URL
 
 ### Environment variables not loading
 - Verify all variables in cloudbuild.yaml substitutions match your `.env`

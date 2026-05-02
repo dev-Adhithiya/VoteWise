@@ -18,6 +18,22 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
+function getAuthBaseUrl(): string | null {
+  const raw = process.env.AUTH_URL || process.env.NEXTAUTH_URL;
+  if (!raw) return null;
+
+  const trimmed = raw.trim().replace(/\/$/, "");
+  try {
+    const parsed = new URL(trimmed);
+    if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+      parsed.protocol = "https:";
+    }
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn("Missing Google OAuth credentials. Check .env.local");
 }
@@ -105,6 +121,34 @@ export const authConfig: NextAuthConfig = {
     },
 
     /**
+     * Redirect Callback — force secure/same-origin redirects in production
+     */
+    async redirect({ url, baseUrl }) {
+      const configuredBaseUrl = getAuthBaseUrl();
+      const effectiveBaseUrl = configuredBaseUrl || baseUrl;
+
+      try {
+        const base = new URL(effectiveBaseUrl);
+
+        if (url.startsWith("/")) {
+          return `${base.origin}${url}`;
+        }
+
+        const target = new URL(url);
+        if (target.origin === base.origin) {
+          if (process.env.NODE_ENV === "production" && target.protocol !== "https:") {
+            target.protocol = "https:";
+          }
+          return target.toString();
+        }
+
+        return base.origin;
+      } catch {
+        return effectiveBaseUrl;
+      }
+    },
+
+    /**
      * Authorized Callback — Check if user is authorized (runs on protected routes)
      */
     async authorized({ request, auth }) {
@@ -136,6 +180,7 @@ export const authConfig: NextAuthConfig = {
 
   // Trust host for development
   trustHost: true,
+  useSecureCookies: process.env.NODE_ENV === "production",
 };
 
 export const { handlers, auth, signIn, signOut } = (

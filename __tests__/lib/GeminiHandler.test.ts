@@ -28,6 +28,25 @@ describe('GeminiHandler Tool Execution', () => {
     expect(result.data.userLng).toBe(-77.0365);
   });
 
+  it('handles getPollingRoute for India (IN) region', async () => {
+    const result = await executeToolCall('getPollingRoute', 
+      { latitude: 28.6139, longitude: 77.2090 }, 
+      { countryCode: 'IN' }
+    );
+    expect(result.toolType).toBe('getPollingRoute');
+    expect(result.data.stationName).toContain('Government Primary School');
+    expect(result.data.nearest.address).toContain('Ward 4');
+  });
+
+  it('handles getPollingRoute for United Kingdom (UK) region', async () => {
+    const result = await executeToolCall('getPollingRoute', 
+      { latitude: 51.5074, longitude: -0.1278 }, 
+      { countryCode: 'UK' }
+    );
+    expect(result.toolType).toBe('getPollingRoute');
+    expect(result.data.stationName).toContain('Parish Hall');
+  });
+
   it('handles unknown tools gracefully', async () => {
     const result = await executeToolCall('unknownTool', {});
     expect(result.toolType).toBe('unknownTool');

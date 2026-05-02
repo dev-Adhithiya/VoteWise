@@ -9,6 +9,18 @@
 
 import { GoogleGenerativeAI, type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 
+function getGeminiApiKey(): string | null {
+  const rawKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!rawKey) return null;
+
+  // Cloud environment variables are sometimes wrapped in quotes.
+  return rawKey.trim().replace(/^"|"$/g, "");
+}
+
+function getGeminiModelName(): string {
+  return (process.env.GEMINI_MODEL || "gemini-2.0-flash").trim();
+}
+
 /* --------------------------------------------------------------------------
    TOOL DECLARATIONS
    All tools are defined natively in the Gemini SDK format.
@@ -177,23 +189,31 @@ Be helpful, accurate, and encouraging about civic participation.`;
    GEMINI CLIENT INITIALIZATION
    Creates and exports a configured Gemini model instance.
    -------------------------------------------------------------------------- */
-export function createGeminiModel() {
-  const apiKey = process.env.GEMINI_API_KEY;
+export function createGeminiModel(location?: any) {
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
-    console.error("GEMINI_API_KEY is missing from environment variables.");
+    console.error("Gemini API key is missing. Set GEMINI_API_KEY (or GOOGLE_API_KEY).");
     return null;
   }
 
+  const modelName = getGeminiModelName();
+
   // Log the first few characters of the API key for debugging (safe)
   console.log(`Initializing Gemini with key starting with: ${apiKey.substring(0, 7)}...`);
+  console.log(`Using Gemini model: ${modelName}`);
 
   const genAI = new GoogleGenerativeAI(apiKey);
+  
+  let currentSystemPrompt = SYSTEM_PROMPT;
+  if (location && location.countryCode) {
+    currentSystemPrompt += `\n\n**User Context:** The user is currently located in Country Code: ${location.countryCode}. ${location.address ? `Location: ${location.address}.` : ""} Adapt your answers to this region.`;
+  }
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: modelName,
     tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: currentSystemPrompt,
   });
 
   return model;
@@ -204,16 +224,35 @@ export function createGeminiModel() {
    Processes function calls from Gemini and returns mock/real results.
    In production, these would call actual Google APIs.
    -------------------------------------------------------------------------- */
-function handleGetPollingRoute(args: Record<string, unknown>) {
-  const rawLat = typeof args.latitude === "number" ? args.latitude : Number(args.latitude);
-  const rawLng = typeof args.longitude === "number" ? args.longitude : Number(args.longitude);
-  const userLat = Number.isFinite(rawLat) ? rawLat : 38.8977;
-  const userLng = Number.isFinite(rawLng) ? rawLng : -77.0365;
-  const stationLat = userLat + 0.008;
+function handleGetPollingRoute(args: Record<string, unknown>, location?: any) {
+  const contextLat = location?.latitude;
+  const contextLng = location?.longitude;
+  const countryCode = location?.countryCode || "US";
+
+  let userLat = typeof args.latitude === "number" ? args.latitude : Number(args.latitude);
+  let userLng = typeof args.longitude === "number" ? args.longitude : Number(args.longitude);
+  
+  // Use frontend location if AI didn't provide valid numbers
+  if (!Number.isFinite(userLat) || userLat === 0) userLat = (contextLat && contextLat !== 0) ? contextLat : 38.8977;
+  if (!Number.isFinite(userLng) || userLng === 0) userLng = (contextLng && contextLng !== 0) ? contextLng : -77.0365;
+
+  // Add small offset to generate polling station coordinates
+  const stationLat = userLat + 0.005;
   const stationLng = userLng + 0.005;
-  const stationName = "District Community Center";
-  const address = "123 Democracy Ave, Suite 100";
-  const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${encodeURIComponent(address)}&travelmode=driving`;
+  
+  let stationName = "District Community Center";
+  let address = "123 Democracy Ave, Suite 100";
+
+  // Regionalize mock data
+  if (countryCode === "IN") {
+    stationName = "Government Primary School Polling Booth";
+    address = "Local School Campus, Ward 4";
+  } else if (countryCode === "UK") {
+    stationName = "St. Jude's Parish Hall Polling Station";
+    address = "High Street, Local Parish";
+  }
+
+  const navigationUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${stationLat},${stationLng}&travelmode=driving`;
 
   return {
     toolType: "getPollingRoute",
@@ -248,8 +287,11 @@ function handleGetPollingRoute(args: Record<string, unknown>) {
 
 export async function executeToolCall(
   functionName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  location?: any
 ): Promise<{ toolType: string; data: Record<string, unknown> }> {
+  const countryCode = location?.countryCode || "US";
+
   switch (functionName) {
     case "getElectionReminder":
       return {
@@ -258,45 +300,73 @@ export async function executeToolCall(
           title: "Election Day Reminder",
           date: "2026-11-03",
           description: "Don't forget to vote! Check your polling location and bring valid ID.",
-          country: args.country || "US",
+          country: args.country || countryCode,
         },
       };
 
     case "setupVoterChecklist":
       return {
         toolType: "setupVoterChecklist",
-        data: { region: args.region || "US" },
+        data: { region: args.region || countryCode },
       };
 
     case "getPollingRoute":
-      return handleGetPollingRoute(args);
+      return handleGetPollingRoute(args, location);
 
 
     case "getLocalCandidates":
+      let mockCandidates = [
+        { name: "Alexandra Rivera", party: "Democratic", office: "U.S. Senate" },
+        { name: "James Mitchell", party: "Republican", office: "U.S. Senate" },
+        { name: "Sarah Chen", party: "Democratic", office: "U.S. House - District 7" },
+        { name: "Robert Williams", party: "Republican", office: "U.S. House - District 7" },
+        { name: "Maria Santos", party: "Independent", office: "Governor" },
+      ];
+      if (countryCode === "IN") {
+        mockCandidates = [
+          { name: "Rahul Sharma", party: "NDA", office: "Lok Sabha Member" },
+          { name: "Priya Patel", party: "I.N.D.I.A", office: "Lok Sabha Member" },
+          { name: "Vikram Singh", party: "Independent", office: "Member of Legislative Assembly" },
+        ];
+      } else if (countryCode === "UK") {
+        mockCandidates = [
+          { name: "Eleanor Vance", party: "Labour", office: "Member of Parliament" },
+          { name: "Arthur Pendelton", party: "Conservative", office: "Member of Parliament" },
+          { name: "Sajid Khan", party: "Liberal Democrats", office: "Local Councillor" },
+        ];
+      }
       return {
         toolType: "getLocalCandidates",
         data: {
-          candidates: [
-            { name: "Alexandra Rivera", party: "Democratic", office: "U.S. Senate" },
-            { name: "James Mitchell", party: "Republican", office: "U.S. Senate" },
-            { name: "Sarah Chen", party: "Democratic", office: "U.S. House - District 7" },
-            { name: "Robert Williams", party: "Republican", office: "U.S. House - District 7" },
-            { name: "Maria Santos", party: "Independent", office: "Governor" },
-          ],
+          candidates: mockCandidates,
           address: args.address,
         },
       };
 
     case "getPollingData":
+      let mockPolls = [
+        { name: "Rivera (D)", polls: 48.2, bettingMarkets: 52.1, color: "#3B82F6" },
+        { name: "Mitchell (R)", polls: 45.6, bettingMarkets: 44.3, color: "#EF4444" },
+        { name: "Santos (I)", polls: 4.1, bettingMarkets: 3.2, color: "#A855F7" },
+      ];
+      if (countryCode === "IN") {
+        mockPolls = [
+          { name: "NDA", polls: 48.2, bettingMarkets: 51.5, color: "#F97316" }, // Saffron/Orange
+          { name: "I.N.D.I.A", polls: 43.6, bettingMarkets: 41.3, color: "#3B82F6" }, // Blue
+          { name: "Others", polls: 8.2, bettingMarkets: 7.2, color: "#10B981" }, // Green
+        ];
+      } else if (countryCode === "UK") {
+        mockPolls = [
+          { name: "Labour", polls: 44.2, bettingMarkets: 48.1, color: "#EF4444" },
+          { name: "Conservative", polls: 24.6, bettingMarkets: 22.3, color: "#3B82F6" },
+          { name: "Lib Dem", polls: 11.1, bettingMarkets: 9.2, color: "#F59E0B" },
+        ];
+      }
       return {
         toolType: "getPollingData",
         data: {
           race: args.race,
-          results: [
-            { name: "Rivera (D)", polls: 48.2, bettingMarkets: 52.1, color: "#3B82F6" },
-            { name: "Mitchell (R)", polls: 45.6, bettingMarkets: 44.3, color: "#EF4444" },
-            { name: "Santos (I)", polls: 4.1, bettingMarkets: 3.2, color: "#A855F7" },
-          ],
+          results: mockPolls,
         },
       };
 

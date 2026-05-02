@@ -36,17 +36,59 @@ function Get-EnvVariable {
     return $value
 }
 
+function Get-OptionalEnvVariable {
+    param(
+        [string]$VarName
+    )
+
+    $value = [Environment]::GetEnvironmentVariable($VarName)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        $envContent = Get-Content .env -ErrorAction SilentlyContinue
+        if ($envContent) {
+            $match = $envContent | Select-String "^$VarName=(.+)$"
+            if ($match) {
+                $value = $match.Matches[0].Groups[1].Value
+            }
+        }
+    }
+
+    return $value
+}
+
+function Normalize-HttpsUrl {
+    param(
+        [string]$Url,
+        [string]$Fallback
+    )
+
+    $candidate = $Url
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        $candidate = $Fallback
+    }
+
+    $candidate = $candidate.Trim().TrimEnd('/')
+    if ($candidate -match '^http://') {
+        $candidate = $candidate -replace '^http://', 'https://'
+    }
+
+    if ($candidate -notmatch '^https://') {
+        $candidate = "https://$candidate"
+    }
+
+    return $candidate
+}
+
 # Retrieve all required environment variables
 Write-Host "`nRetrieving environment variables..." -ForegroundColor Cyan
 $GOOGLE_CLIENT_ID = Get-EnvVariable "GOOGLE_CLIENT_ID"
 $GOOGLE_CLIENT_SECRET = Get-EnvVariable "GOOGLE_CLIENT_SECRET"
 $NEXTAUTH_SECRET = Get-EnvVariable "NEXTAUTH_SECRET"
 $GEMINI_API_KEY = Get-EnvVariable "GEMINI_API_KEY"
-$GOOGLE_CIVIC_API_KEY = Get-EnvVariable "GOOGLE_CIVIC_API_KEY"
-$GOOGLE_FACTCHECK_API_KEY = Get-EnvVariable "GOOGLE_FACTCHECK_API_KEY"
-$GOOGLE_MAPS_API_KEY = Get-EnvVariable "GOOGLE_MAPS_API_KEY"
-$YOUTUBE_API_KEY = Get-EnvVariable "YOUTUBE_API_KEY"
-$NEXT_PUBLIC_GOOGLE_MAPS_KEY = Get-EnvVariable "NEXT_PUBLIC_GOOGLE_MAPS_KEY"
+$GOOGLE_CIVIC_API_KEY = Get-OptionalEnvVariable "GOOGLE_CIVIC_API_KEY"
+$GOOGLE_FACTCHECK_API_KEY = Get-OptionalEnvVariable "GOOGLE_FACTCHECK_API_KEY"
+$GOOGLE_MAPS_API_KEY = Get-OptionalEnvVariable "GOOGLE_MAPS_API_KEY"
+$YOUTUBE_API_KEY = Get-OptionalEnvVariable "YOUTUBE_API_KEY"
+$NEXT_PUBLIC_GOOGLE_MAPS_KEY = Get-OptionalEnvVariable "NEXT_PUBLIC_GOOGLE_MAPS_KEY"
 
 # Check if all required variables are present
 $missingVars = @(
@@ -63,9 +105,12 @@ if ($missingVars) {
 }
 
 # Retrieve NEXTAUTH_URL from .env or fallback to construction
-$NEXTAUTH_URL = Get-EnvVariable "NEXTAUTH_URL"
-if ([string]::IsNullOrWhiteSpace($NEXTAUTH_URL)) {
-    $NEXTAUTH_URL = "https://$SERVICE_NAME-$REGION-$PROJECT_ID.run.app"
+$NEXTAUTH_URL = Get-OptionalEnvVariable "NEXTAUTH_URL"
+$NEXTAUTH_URL = Normalize-HttpsUrl -Url $NEXTAUTH_URL -Fallback "https://$SERVICE_NAME-$REGION-$PROJECT_ID.run.app"
+$AUTH_URL = $NEXTAUTH_URL
+$GEMINI_MODEL = Get-OptionalEnvVariable "GEMINI_MODEL"
+if ([string]::IsNullOrWhiteSpace($GEMINI_MODEL)) {
+    $GEMINI_MODEL = "gemini-2.0-flash"
 }
 
 Write-Host "`n✅ All environment variables loaded successfully" -ForegroundColor Green
@@ -78,7 +123,7 @@ Write-Host "Region: $REGION" -ForegroundColor Gray
 gcloud builds submit `
   --project=$PROJECT_ID `
   --config=cloudbuild.yaml `
-  --substitutions="_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,_GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,_NEXTAUTH_SECRET=$NEXTAUTH_SECRET,_GEMINI_API_KEY=$GEMINI_API_KEY,_GOOGLE_CIVIC_API_KEY=$GOOGLE_CIVIC_API_KEY,_GOOGLE_FACTCHECK_API_KEY=$GOOGLE_FACTCHECK_API_KEY,_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY,_YOUTUBE_API_KEY=$YOUTUBE_API_KEY,_NEXT_PUBLIC_GOOGLE_MAPS_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_KEY,_NEXTAUTH_URL=$NEXTAUTH_URL"
+    --substitutions="_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID,_GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET,_NEXTAUTH_SECRET=$NEXTAUTH_SECRET,_GEMINI_API_KEY=$GEMINI_API_KEY,_GOOGLE_CIVIC_API_KEY=$GOOGLE_CIVIC_API_KEY,_GOOGLE_FACTCHECK_API_KEY=$GOOGLE_FACTCHECK_API_KEY,_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY,_YOUTUBE_API_KEY=$YOUTUBE_API_KEY,_NEXT_PUBLIC_GOOGLE_MAPS_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_KEY,_NEXTAUTH_URL=$NEXTAUTH_URL,_AUTH_URL=$AUTH_URL,_GEMINI_MODEL=$GEMINI_MODEL"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n✅ Build submitted successfully!" -ForegroundColor Green

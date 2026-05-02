@@ -11,12 +11,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { createGeminiModel, executeToolCall } from "@/lib/GeminiHandler";
 import { getFallbackResponse } from "@/lib/fallbackResponses";
 
+function isGeminiAuthError(error: unknown): boolean {
+  const err = error as { message?: string; status?: number; code?: number | string };
+  const message = String(err?.message || "").toLowerCase();
+  const status = typeof err?.status === "number" ? err.status : undefined;
+
+  return (
+    status === 401 ||
+    status === 403 ||
+    message.includes("api key") ||
+    message.includes("permission") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden")
+  );
+}
+
+function isGeminiRateLimitError(error: unknown): boolean {
+  const err = error as { message?: string; status?: number; code?: number | string };
+  const message = String(err?.message || "").toLowerCase();
+  const status = typeof err?.status === "number" ? err.status : undefined;
+
+  return status === 429 || message.includes("quota") || message.includes("rate limit") || message.includes("too many requests");
+}
+
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null);
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     const lastMessage = messages[messages.length - 1];
+    const location = body?.location;
 
     if (!lastMessage || typeof lastMessage.content !== "string") {
       return NextResponse.json(
@@ -24,7 +48,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const model = createGeminiModel();
+    const model = createGeminiModel(location);
 
     /* If no API key, use intelligent fallback responses */
     if (!model) {
@@ -58,7 +82,7 @@ export async function POST(request: NextRequest) {
       const functionResponses = [];
 
       for (const call of functionCalls) {
-        const toolResult = await executeToolCall(call.name, call.args as Record<string, unknown>);
+        const toolResult = await executeToolCall(call.name, call.args as Record<string, unknown>, location);
         toolResults.push(toolResult);
 
         functionResponses.push({
@@ -87,27 +111,27 @@ export async function POST(request: NextRequest) {
       text: finalTags,
       toolResults,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Chat API error:", error);
 
-    /* If the error is likely due to an invalid/expired API key, use fallback */
-    const isApiError = error?.message?.includes("API key") || 
-                       error?.status === 403 || 
-                       error?.status === 401 ||
-                       error?.message?.includes("model") ||
-                       error?.message?.includes("fetch");
+    if (isGeminiAuthError(error)) {
+      return NextResponse.json(
+        {
+          text: "AI chat authentication failed. Verify GEMINI_API_KEY and model access in your deployment environment.",
+          toolResults: [],
+        },
+        { status: 502 }
+      );
+    }
 
-    if (isApiError) {
-      console.log("Falling back to intelligent mock response due to API error.");
-      const body = await request.json().catch(() => ({}));
-      const messages = body?.messages || [];
-      const lastMessage = messages[messages.length - 1];
-      const fallbackText = getFallbackResponse(lastMessage?.content || "");
-      
-      return NextResponse.json({
-        text: fallbackText,
-        toolResults: [],
-      });
+    if (isGeminiRateLimitError(error)) {
+      return NextResponse.json(
+        {
+          text: "AI chat is temporarily unavailable because Gemini API quota is exceeded for this project. Enable billing or increase quota, then retry.",
+          toolResults: [],
+        },
+        { status: 429 }
+      );
     }
 
     return NextResponse.json(

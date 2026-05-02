@@ -98,14 +98,14 @@ export default function VotingRouteMap({
             title="Route to polling station"
           />
         ) : (
-          /* Fallback when no API key — stylized placeholder */
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-obsidian to-blue-900/20">
-            <span className="text-4xl mb-3">🗺️</span>
-            <p className="text-foreground-dim text-sm">Map preview</p>
-            <p className="text-foreground-muted text-xs mt-1">
-              {currentLat.toFixed(4)}, {currentLng.toFixed(4)} → {stationLat.toFixed(4)}, {stationLng.toFixed(4)}
-            </p>
-          </div>
+          /* Fallback when no API key — OpenStreetMap embed */
+          <iframe
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${Math.min(currentLng, stationLng) - 0.02}%2C${Math.min(currentLat, stationLat) - 0.02}%2C${Math.max(currentLng, stationLng) + 0.02}%2C${Math.max(currentLat, stationLat) + 0.02}&layer=mapnik&marker=${stationLat}%2C${stationLng}`}
+            className="w-full h-full border-0"
+            allowFullScreen
+            loading="lazy"
+            title="OpenStreetMap Route to polling station"
+          />
         )}
       </div>
 
