@@ -285,6 +285,15 @@ function handleGetPollingRoute(args: Record<string, unknown>, location?: any) {
   };
 }
 
+/**
+ * Executes a specific tool called by the Gemini AI based on the user's prompt.
+ * This acts as the bridge between natural language intent and frontend UI components.
+ * 
+ * @param functionName - The name of the tool (function) requested by Gemini.
+ * @param args - The arguments provided by Gemini for the tool.
+ * @param location - Optional user location data (latitude, longitude, countryCode) to localize results.
+ * @returns A promise that resolves to an object containing the toolType and the resulting data.
+ */
 export async function executeToolCall(
   functionName: string,
   args: Record<string, unknown>,

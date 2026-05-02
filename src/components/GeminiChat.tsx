@@ -22,17 +22,20 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import ChatMessage from "./ChatMessage";
 import TypingIndicator from "./TypingIndicator";
 import WelcomeBanner from "./WelcomeBanner";
-import InteractiveChecklist from "./InteractiveChecklist";
-import VotingRouteMap from "./VotingRouteMap";
-import CandidateCards from "./CandidateCards";
-import PollingChart from "./PollingChart";
-import VerdictCard from "./VerdictCard";
-import GoogleWalletButton from "./GoogleWalletButton";
-import ElectionReminderModal from "./ElectionReminderModal";
-import DossierModal from "./DossierModal";
+
+// Dynamically import heavy interactive components to reduce initial bundle size
+const InteractiveChecklist = dynamic(() => import("./InteractiveChecklist"), { ssr: false });
+const VotingRouteMap = dynamic(() => import("./VotingRouteMap"), { ssr: false });
+const CandidateCards = dynamic(() => import("./CandidateCards"));
+const PollingChart = dynamic(() => import("./PollingChart"), { ssr: false });
+const VerdictCard = dynamic(() => import("./VerdictCard"));
+const GoogleWalletButton = dynamic(() => import("./GoogleWalletButton"));
+const ElectionReminderModal = dynamic(() => import("./ElectionReminderModal"));
+const DossierModal = dynamic(() => import("./DossierModal"));
 import type { Location, CountryCode } from "@/lib/geolocation";
 import type {
   ChatMessage as ChatMessageType,
@@ -223,10 +226,14 @@ export default function GeminiChat({
   };
 
   /** Handle clicking a candidate's "Research" button */
-  const handleResearchCandidate = (candidate: Candidate) => {
+  const handleResearchCandidate = useCallback((candidate: Candidate) => {
     setSelectedCandidate(candidate.name);
     setShowDossierModal(true);
-  };
+  }, []);
+
+  /** Handle closing modals */
+  const handleCloseReminder = useCallback(() => setShowReminderModal(false), []);
+  const handleCloseDossier = useCallback(() => setShowDossierModal(false), []);
 
   /**
    * Renders tool result UI components inline within the chat.
@@ -414,13 +421,13 @@ export default function GeminiChat({
       {/* MODALS */}
       <ElectionReminderModal
         isOpen={showReminderModal}
-        onClose={() => setShowReminderModal(false)}
+        onClose={handleCloseReminder}
         countryCode={country}
         location={pollingLocation?.address}
       />
       <DossierModal
         isOpen={showDossierModal}
-        onClose={() => setShowDossierModal(false)}
+        onClose={handleCloseDossier}
         candidateName={selectedCandidate}
       />
     </div>

@@ -153,7 +153,7 @@ interface ChatMessageProps {
 /* --------------------------------------------------------------------------
    CHAT MESSAGE COMPONENT
    -------------------------------------------------------------------------- */
-export default function ChatMessage({ message }: ChatMessageProps) {
+const ChatMessage = React.memo(function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -213,4 +213,6 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       </div>
     </motion.div>
   );
-}
+});
+
+export default ChatMessage;

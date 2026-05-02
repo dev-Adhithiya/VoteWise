@@ -25,8 +25,10 @@ import React, { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Sidebar from "@/components/Sidebar";
 import GeminiChat from "@/components/GeminiChat";
-import ElectionTimeline from "@/components/ElectionTimeline";
+import dynamic from "next/dynamic";
 import LanguageToggle from "@/components/LanguageToggle";
+
+const ElectionTimeline = dynamic(() => import("@/components/ElectionTimeline"), { ssr: false });
 import LoginButton from "@/components/LoginButton";
 import TasksPanel from "@/components/TasksPanel";
 import { useUserLocation, LocationStatus } from "@/components/LocationDetector";
@@ -72,6 +74,17 @@ export default function DashboardPage() {
     setInjectedMessage("");
   }, []);
 
+  /**
+   * Toggle handlers for panels to prevent unnecessary re-renders.
+   */
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const handleToggleTasks = useCallback(() => {
+    setTasksOpen((prev) => !prev);
+  }, []);
+
   return (
     <>
       {/* ================================================================
@@ -80,7 +93,7 @@ export default function DashboardPage() {
       <Sidebar
         onTopicSelect={handleTopicSelect}
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onToggle={handleToggleSidebar}
       />
 
       {/* ================================================================
@@ -138,7 +151,7 @@ export default function DashboardPage() {
 
             {/* Tasks Toggle */}
             <button
-              onClick={() => setTasksOpen((open) => !open)}
+              onClick={handleToggleTasks}
               className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
                 ${
                   tasksOpen
@@ -178,7 +191,7 @@ export default function DashboardPage() {
 
       <TasksPanel
         isOpen={tasksOpen}
-        onToggle={() => setTasksOpen((open) => !open)}
+        onToggle={handleToggleTasks}
         countryCode={country}
       />
     </>

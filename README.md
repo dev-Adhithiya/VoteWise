@@ -27,6 +27,30 @@ VoteWise AI is a premium, feature-rich web application designed to empower voter
 | **APIs** | Google Civic Information, Google Maps, Fact Check Tools, YouTube Data, Google Tasks, Google Calendar |
 | **Deployment** | [Google Cloud Run](https://cloud.google.com/run), [Cloud Build](https://cloud.google.com/build), [Docker](https://www.docker.com/) |
 
+## 📊 Project Evaluation Details
+
+### Your Chosen Vertical
+**Civic Tech & Voter Education**
+VoteWise AI focuses on the Civic Tech vertical, addressing the critical need for accessible, accurate, and localized election information. It empowers citizens to make informed decisions by aggregating candidate data, tracking election timelines, and combating political misinformation through AI-driven fact-checking.
+
+### Approach and Logic
+The application is built on the premise of conversational interfaces lowering the barrier to entry for complex information. 
+- **AI as an Orchestrator**: Instead of static forms and menus, the Gemini AI acts as an intelligent router. It interprets natural language and decides when to trigger specific frontend UI components (tools) like maps or charts.
+- **Context-Aware**: The system uses Geolocation and NextAuth to provide hyper-localized data (e.g., polling stations and local candidates) while respecting user privacy.
+- **Performance-First**: React optimizations (`React.memo`, `useCallback`, `useMemo`) are employed to ensure the chat interface remains highly responsive, even when rendering complex interactive widgets.
+
+### How the Solution Works
+1. **User Input**: The user asks a question in the chat interface (e.g., "Where do I vote?").
+2. **Context Enrichment**: The frontend attaches the user's geographical context (country, lat/lng) to the payload.
+3. **LLM Processing**: The request is sent to the `gemini-1.5-flash` model, which is equipped with specific `FunctionDeclarations` (Tools).
+4. **Tool Execution**: If Gemini determines a tool is needed (e.g., `getPollingRoute`), it returns a function call instead of plain text.
+5. **Component Rendering**: The backend executes the tool logic (fetching data or returning mock data), and the frontend dynamically maps the `toolType` to an interactive React component (e.g., `VotingRouteMap`), displaying it seamlessly inline with the chat.
+
+### Any Assumptions Made
+- **API Availability**: It is assumed that production deployment will have active, paid-tier access to Google Maps API, Google Civic Information API, and Fact Check Tools API. Current implementation may utilize simulated data for safety and cost during demonstration.
+- **User Environment**: Assumes a modern browser environment with JavaScript enabled and optional Geolocation permissions granted by the user.
+- **Scope**: Assumes the primary focus is on US, UK, and India elections, as defined in the timeline logic, though the AI can speak broadly about global democratic processes.
+
 ## 📂 Project Structure
 
 ```text

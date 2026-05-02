@@ -21,7 +21,7 @@
  */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import type { TimelineStep } from "@/types";
 
@@ -96,8 +96,8 @@ interface ElectionTimelineProps {
   countryCode?: CountryCode;
 }
 
-export default function ElectionTimeline({ countryCode = "UNKNOWN" }: ElectionTimelineProps) {
-  const TIMELINE_STEPS = getTimelineForCountry(countryCode);
+const ElectionTimeline = React.memo(function ElectionTimeline({ countryCode = "UNKNOWN" }: ElectionTimelineProps) {
+  const TIMELINE_STEPS = useMemo(() => getTimelineForCountry(countryCode), [countryCode]);
   /* State to toggle the timeline panel open/closed */
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -225,4 +225,6 @@ export default function ElectionTimeline({ countryCode = "UNKNOWN" }: ElectionTi
       </motion.div>
     </div>
   );
-}
+});
+
+export default ElectionTimeline;
